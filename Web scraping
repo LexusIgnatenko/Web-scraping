@@ -1,0 +1,43 @@
+import json
+import requests
+import bs4
+from pprint import pprint
+import fake_headers
+
+
+from fake_headers import Headers
+
+KEYWORDS = ['дизайн', 'фото', 'web', 'python']
+
+def get_fake_headers():
+    return Headers(browser='chrome', os='win').generate()
+
+
+response = requests.get('https://habr.com/ru/articles/', headers=get_fake_headers())
+
+soup = bs4.BeautifulSoup(response.text, features='lxml') #распарсил всю страницу
+news_list = soup.findAll('div', class_='tm-article-snippet') #нашёл все элементы,относящиеся к конкретной новости
+
+
+parsed_data = []
+for news in news_list:
+    article_link = news.find('a', class_='tm-title__link')['href']#в каждой новости нашёл ссылку и взял ее содержимое
+    response = requests.get(f'https://habr.com{article_link}', headers=get_fake_headers())#получил страницу по этой ссылке
+    article = bs4.BeautifulSoup(response.text, features='lxml')#получил текст с этой страницы и из него далее нужные составляющие
+    title = article.find('h1').text
+    time = article.find('time')['datetime']
+    text = article.find('div', class_= 'tm-article-snippet').text
+    
+
+    if any(keyword.lower() in text.lower() for keyword in KEYWORDS):
+
+     parsed_data.append({ #вносим необходимые данные в parsed_data
+        'time': time,
+        'title': title,
+        'link': f'https://habr.com{article_link}',
+
+
+    })
+
+with open('articles.json', 'w') as f: #записываем в файл
+    f.write(json.dumps(parsed_data, ensure_ascii=False, indent=4))
